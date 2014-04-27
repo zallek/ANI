@@ -1,0 +1,509 @@
+package com.ani.db;
+
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import android.content.ContentValues;
+import android.content.Context;
+import android.database.Cursor;
+import android.util.Log;
+
+import com.ani.db.entity.BlackListItem;
+import com.ani.db.entity.LogFilter;
+import com.ani.db.entity.NetLog;
+import com.ani.db.listener.BlackListListener;
+import com.ani.db.listener.EventListenerList;
+import com.ani.db.listener.LogFilterListener;
+import com.ani.db.object.NetLogAggregate;
+import com.ani.db.object.NetworkType;
+import com.ani.db.object.Traffic;
+import com.ani.utils.StaticANI;
+
+@SuppressWarnings("unused")
+public class DbModel extends DbModelInterface {
+
+	// // Format Date
+	static final public SimpleDateFormat LOG_PARUTION_DATE_FORMAT = new SimpleDateFormat(
+			"yyyy-MM-dd");
+	static final public SimpleDateFormat LOG_MAJ_DATE_FORMAT = new SimpleDateFormat(
+			"yyyy-MM-dd kk:mm:ss");
+
+	// Table LOG
+	public static final String TABLE_LOG = "ANILog";
+	// Colonnes Table LOG
+	public static final String LOG_APPLICATION = "application";
+	public static final String LOG_TIME = "time";
+	public static final String LOG_CONSUMPTION = "weight";
+	public static final String LOG_DESTINATION = "destination";
+	// Numero colonnes Table LOG
+	public static final int LOG_TIME_NUM = 0;
+	public static final int LOG_APPLICATION_NUM = 1;
+	public static final int LOG_CONSUMPTION_NUM = 2;
+	public static final int LOG_DESTINATION_NUM = 3;
+	// Query aggregate
+	public static final int AGGREGATE_VALUE_NUM = 0;
+	public static final int AGGREGATE_WEIGHT_NUM = 1;
+	// Query traffic
+	public static final int TRAFFIC_APP_NUM = 0;
+	public static final int TRAFFIC_UPLOAD_NUM = 1;
+	public static final int TRAFFIC_DOWNLOAD_NUM = 2;
+	// Table FILTER
+	public static final String TABLE_FILTER = "LogFilter";
+	// Colonnes Table FILTER
+	public static final String FILTER_TYPE = "type";
+	public static final String FILTER_VALUE = "value";
+	public static final String FILTER_ACTIVE = "active";
+	// Numero colonnes Table FILTER
+	public static final int FILTER_TYPE_NUM = 0;
+	public static final int FILTER_VALUE_NUM = 1;
+	public static final int FILTER_ACTIVE_NUM = 2;
+	// Table BLACKLIST
+	public static final String TABLE_BLACKLIST = "BlackList";
+	// Colonnes Table BLACKLIST
+	public static final String BLACKLIST_TYPE = "type";
+	public static final String BLACKLIST_VALUE = "value";
+	public static final String BLACKLIST_ACTIVE = "active";
+	// Numero colonnes Table BLACKLIST
+	public static final int BLACKLIST_TYPE_NUM = 0;
+	public static final int BLACKLIST_VALUE_NUM = 1;
+	public static final int BLACKLIST_ACTIVE_NUM = 2;
+
+	/***
+	 * constructor
+	 * 
+	 * @param context
+	 * @throws IOException
+	 */
+
+	public DbModel(Context context) {
+		super(context, StaticANI.LOCAL_DATA_BASE);
+	}
+
+	/***
+	 * SQL Requests
+	 */
+	// LOGS
+
+	@Override
+	public List<NetLog> getLogs() {
+		// TODO Auto-generated method stub
+		String query = "SELECT * FROM " + TABLE_LOG + ";";
+		Cursor c = executeQuery(query);
+		return cursorToAppLogList(c);
+	}
+
+	/**
+	 * Function to retrieve the log with a search filter (over application and
+	 * destination) and time
+	 * 
+	 * @param timeStart
+	 *            : Time from where we're collecting the logs (Use <b>0</b> for
+	 *            default)
+	 * @param timeEnd
+	 *            : Time since where we're not getting logs (Use
+	 *            <b>System.currentTimeMillis()</b> for default)
+	 * @param search
+	 *            : If a any part of the name correspond to that string, it's
+	 *            ok. (Use <b>""</b> for default)
+	 * @param choosenApp
+	 *            : String to choose to display all the log jsut for this app
+	 *            (Use <b>null</b> for no app)
+	 * @param choosenDest
+	 *            : String to choose to display all the log jsut for this dest
+	 *            (Use <b>null</b> for no app)
+	 * @return The logs.
+	 */
+	public List<NetLog> getLogs(long timeStart, long timeEnd,
+			String choosenApp, String choosenDest) {
+		String query;
+		if (choosenApp == null || choosenDest ==null)
+			query = "SELECT " + LOG_TIME + "," + LOG_APPLICATION + ", sum("
+					+ LOG_CONSUMPTION + ") as upload ," + LOG_DESTINATION
+					+ " FROM " + TABLE_LOG + " l WHERE (" + LOG_TIME + ">"
+					+ timeStart + " AND " + LOG_TIME + " <" + timeEnd
+					+ ") GROUP BY " + LOG_APPLICATION + ", " + LOG_DESTINATION
+					+ " ORDER BY " + LOG_CONSUMPTION + " DESC;";
+		else
+			query = "SELECT * FROM " + TABLE_LOG + " WHERE (" + LOG_TIME + ">"
+					+ timeStart + " AND " + LOG_TIME + " <" + timeEnd
+					+ ") AND ( " + LOG_APPLICATION + "=\"" + choosenApp
+					+ "\" OR " + LOG_DESTINATION + "=\"" + choosenApp
+					+ "\") AND ( " + LOG_APPLICATION + "=\"" + choosenDest
+					+ "\" OR " + LOG_DESTINATION + "=\"" + choosenDest
+					+ "\") ORDER BY " + LOG_CONSUMPTION + " DESC;";
+		Cursor c = executeQuery(query);
+		return cursorToAppLogList(c);
+	}
+
+	public void addLog(NetLog newLog) {
+		ContentValues values = new ContentValues();
+		if (newLog.getTimeStamp() >= 0)
+			values.put(LOG_TIME, newLog.getTimeStamp());
+		if (newLog.getAppName() != null)
+			values.put(LOG_APPLICATION, newLog.getAppName());
+		if (newLog.getDestination() != null)
+			values.put(LOG_DESTINATION, newLog.getDestination());
+		if (newLog.getMessageSize() >= 0)
+			values.put(LOG_CONSUMPTION, newLog.getMessageSize());
+		insert(TABLE_LOG, values);
+		fireLogFilterChanged();
+	}
+
+	public void clearLogs(String whereClause) {
+		delete(TABLE_LOG, whereClause);
+		fireLogFilterChanged();
+	}
+
+	public void clearLogs() {
+		delete(TABLE_LOG, "");
+		fireLogFilterChanged();
+	}
+
+	// TRAFFIC AND LOG AGGREGATE
+	public List<NetLogAggregate> getLogAppsAgregate() {
+		return getLogAppsAgregate(new Date(0),
+				new Date(System.currentTimeMillis()));
+	}
+
+	public List<NetLogAggregate> getLogAppsAgregate(Date beginDate, Date endDate) {
+		String query = "SELECT " + LOG_APPLICATION + ", sum(" + LOG_CONSUMPTION
+				+ ") FROM " + TABLE_LOG + " WHERE " + LOG_TIME + "<"
+				+ endDate.getTime() + " AND " + LOG_TIME + ">"
+				+ beginDate.getTime() + " GROUP BY " + LOG_APPLICATION + ";";
+		Cursor c = executeQuery(query);
+		return cursorToLogAggregate(c, NetworkType.APP_NAME, beginDate, endDate);
+	}
+
+	public List<NetLogAggregate> getLogDesinationIPAgregate() {
+		return getLogDesinationIP(new Date(0),
+				new Date(System.currentTimeMillis()));
+	}
+
+	public List<NetLogAggregate> getLogDesinationIP(Date beginDate, Date endDate) {
+		String query = "SELECT " + LOG_DESTINATION + ", sum(" + LOG_CONSUMPTION
+				+ ") FROM " + TABLE_LOG + " WHERE " + LOG_TIME + "<"
+				+ endDate.getTime() + " AND " + LOG_TIME + ">"
+				+ beginDate.getTime() + " GROUP BY " + LOG_DESTINATION + ";";
+		Cursor c = executeQuery(query);
+		return cursorToLogAggregate(c, NetworkType.DESTINATION_IP, beginDate,
+				endDate);
+	}
+
+	public List<Traffic> getTrafics() {
+		String query = "SELECT " + LOG_APPLICATION + ", sum(" + LOG_CONSUMPTION
+				+ "), (SELECT sum(" + LOG_CONSUMPTION + ") FROM " + TABLE_LOG
+				+ " WHERE " + LOG_DESTINATION + "=f." + LOG_APPLICATION
+				+ ") AS download FROM " + TABLE_LOG + " f GROUP BY "
+				+ LOG_APPLICATION + ";";
+
+		Cursor c = executeQuery(query);
+		return null;
+	}
+
+	public int getDownloadRate(long interval, long start, String application) {
+		String query = "select sum(" + LOG_CONSUMPTION + ") from " + TABLE_LOG
+				+ " where " + LOG_DESTINATION + "=" + application + " and "
+				+ LOG_TIME + " >= " + (start - interval) + " and " + LOG_TIME
+				+ " < " + start + ";";
+		Cursor c = executeQuery(query);
+		return cursorToInt(c);
+	}
+
+	public int getUploadRate(long interval, long start, String application) {
+		String query = "select sum(" + LOG_CONSUMPTION + ") from " + TABLE_LOG
+				+ " where " + LOG_APPLICATION + "=" + application + " and "
+				+ LOG_TIME + " >= " + (start - interval) + " and " + LOG_TIME
+				+ " < " + start + ";";
+		Cursor c = executeQuery(query);
+		return cursorToInt(c);
+	}
+
+	/*
+	 * ******************************** EVENTLISTENERLIST
+	 * *******************************************
+	 */
+
+	// un seul objet pour tous les types d'�couteurs
+	private final EventListenerList listeners = new EventListenerList();
+
+	public List<LogFilter> getLogFilters() {
+		String query = "SELECT * FROM " + TABLE_FILTER + ";";
+		Cursor c = executeQuery(query);
+		return cursorToLogFilter(c);
+	}
+
+	public void addLogFilter(LogFilter newLogFilter) {
+		ContentValues values = new ContentValues();
+		values.put(FILTER_TYPE, newLogFilter.getType().ordinal());
+		values.put(FILTER_VALUE, newLogFilter.getFilter());
+		int i = newLogFilter.isActive() ? 1 : 0;
+		values.put(FILTER_ACTIVE, i);
+		insert(TABLE_FILTER, values);
+		fireLogFilterChanged();
+	}
+
+	public void removeLogFilter(LogFilter logFilter) {
+		delete(TABLE_FILTER, " WHERE " + FILTER_TYPE + "="
+				+ logFilter.getType().ordinal() + " OR " + FILTER_VALUE + "="
+				+ logFilter.getFilter());
+		fireLogFilterChanged();
+	}
+
+	public void removeAllLogFilters() {
+		delete(TABLE_FILTER, "");
+		fireLogFilterChanged();
+	}
+
+	public void disableLogFilter(LogFilter filter) {
+		ContentValues values = new ContentValues();
+		values.put(FILTER_TYPE, filter.getType().ordinal());
+		values.put(FILTER_VALUE, filter.getFilter());
+		values.put(FILTER_ACTIVE, 0);
+		update(TABLE_FILTER,
+				"WHERE " + FILTER_VALUE + "=" + filter.getFilter(), values);
+	}
+
+	public void enableLogFilter(LogFilter filter) {
+		ContentValues values = new ContentValues();
+		values.put(FILTER_TYPE, filter.getType().ordinal());
+		values.put(FILTER_VALUE, filter.getFilter());
+		values.put(FILTER_ACTIVE, 1);
+		update(TABLE_FILTER,
+				"WHERE " + FILTER_VALUE + "=" + filter.getFilter(), values);
+	}
+
+	// ************* BLACKLIST ***************//
+	public List<BlackListItem> getBlackListItems() {
+		String query = "SELECT * FROM " + TABLE_BLACKLIST + ";";
+		Cursor c = executeQuery(query);
+		return cursorToBlackListItem(c);
+	}
+
+	public void addBlackListItem(BlackListItem newBlackList) {
+		ContentValues values = new ContentValues();
+		values.put(BLACKLIST_TYPE, newBlackList.getType().ordinal());
+		values.put(BLACKLIST_VALUE, newBlackList.getFilter());
+		int i = newBlackList.isActive() ? 1 : 0;
+		values.put(BLACKLIST_ACTIVE, i);
+		insert(TABLE_BLACKLIST, values);
+		fireBlackListItemAdded(newBlackList);
+	}
+
+	// it is modified because it doesn't operate
+	public void removeBlackListItem(BlackListItem blacklist) {
+		/*
+		 * delete(TABLE_BLACKLIST, " WHERE " + BLACKLIST_TYPE + "=" +
+		 * blacklist.getType().ordinal() + " OR " + BLACKLIST_VALUE + "=" +
+		 * blacklist.getFilter());
+		 */
+		delete(TABLE_BLACKLIST, "DELETE FROM Blacklist WHERE value=\""
+				+ blacklist.getFilter() + "\";");
+		fireBlackListItemRemoved(blacklist);
+	}
+
+	public void removeAllBlackListItems() {
+		delete(TABLE_BLACKLIST, "");
+		fireBlackListItemRemoved(null);
+	}
+
+	public void disableBlackListItem(BlackListItem blacklist) {
+		ContentValues values = new ContentValues();
+		values.put(BLACKLIST_TYPE, blacklist.getType().ordinal());
+		values.put(BLACKLIST_VALUE, blacklist.getFilter());
+		values.put(BLACKLIST_ACTIVE, 0);
+		update(TABLE_BLACKLIST,
+				"WHERE " + BLACKLIST_VALUE + "=" + blacklist.getFilter(),
+				values);
+	}
+
+	public void enableBlackListItem(BlackListItem blacklist) {
+		ContentValues values = new ContentValues();
+		values.put(BLACKLIST_TYPE, blacklist.getType().ordinal());
+		values.put(BLACKLIST_VALUE, blacklist.getFilter());
+		values.put(BLACKLIST_ACTIVE, 1);
+		update(TABLE_BLACKLIST,
+				"WHERE " + BLACKLIST_VALUE + "=" + blacklist.getFilter(),
+				values);
+	}
+
+	// ************* CURSOR ****************//
+
+	public List<LogFilter> cursorToLogFilter(Cursor c) {
+		List<LogFilter> filters = new ArrayList<LogFilter>();
+		if (c != null && c.moveToFirst()) {
+			LogFilter filter = null;
+			do {
+				filter = new LogFilter(
+						(c.getInt(FILTER_TYPE_NUM) == 0) ? NetworkType.APP_NAME
+								: NetworkType.DESTINATION_IP,
+						c.getString(FILTER_VALUE_NUM),
+						(c.getInt(FILTER_ACTIVE_NUM) == 1));
+				filters.add(filter);
+			} while (c.moveToNext());
+		}
+		return filters;
+	}
+
+	public List<BlackListItem> cursorToBlackListItem(Cursor c) {
+		List<BlackListItem> blackListItems = new ArrayList<BlackListItem>();
+		if (c != null && c.moveToFirst()) {
+			BlackListItem blackListItem = null;
+			do {
+				blackListItem = new BlackListItem(
+						(c.getInt(FILTER_TYPE_NUM) == 0) ? NetworkType.APP_NAME
+								: NetworkType.DESTINATION_IP,
+						c.getString(FILTER_VALUE_NUM),
+						(c.getInt(FILTER_ACTIVE_NUM) == 1));
+				blackListItems.add(blackListItem);
+			} while (c.moveToNext());
+		}
+		return blackListItems;
+	}
+
+	public List<NetLogAggregate> cursorToLogAggregate(Cursor c,
+			NetworkType type, Date begin, Date end) {
+		List<NetLogAggregate> logs = new ArrayList<NetLogAggregate>();
+		if (c != null && c.moveToFirst()) {
+			NetLogAggregate log = null;
+			do {
+				log = new NetLogAggregate(type,
+						c.getString(AGGREGATE_VALUE_NUM),
+						c.getLong(AGGREGATE_WEIGHT_NUM), begin, end);
+				logs.add(log);
+			} while (c.moveToNext());
+		}
+		return logs;
+	}
+
+	public List<Traffic> cursorToTraffics(Cursor c) {
+		List<Traffic> traffics = new ArrayList<Traffic>();
+		if (c != null && c.moveToFirst()) {
+			Traffic traffic = null;
+			do {
+				traffic = new Traffic(c.getString(TRAFFIC_APP_NUM),
+						c.getLong(TRAFFIC_UPLOAD_NUM) * 1000
+								/ StaticANI.baseInterval,
+						c.getLong(TRAFFIC_DOWNLOAD_NUM) * 1000
+								/ StaticANI.baseInterval);
+				traffics.add(traffic);
+			} while (c.moveToNext());
+		}
+		return traffics;
+	}
+
+	public NetLog cursorToAppLog(Cursor c) {
+		NetLog log = null;
+		if (c != null && c.moveToFirst()) {
+			do {
+				log = new NetLog();
+
+				log.setAppName(c.getString(LOG_APPLICATION_NUM));
+				log.setMessageSize(c.getInt(LOG_CONSUMPTION_NUM));
+				log.setTimeStamp(c.getInt(LOG_TIME_NUM));
+
+			} while (c.moveToNext());
+		}
+		return log;
+	}
+
+	public int cursorToInt(Cursor c) {
+		int count = 0;
+		if (c != null && c.moveToFirst()) {
+			count = c.getInt(0);
+		}
+		return count;
+	}
+
+	public List<NetLog> cursorToAppLogList(Cursor c) {
+		List<NetLog> logs = new ArrayList<NetLog>();
+		if (c != null && c.moveToFirst()) {
+			NetLog log = null;
+			do {
+				log = new NetLog();
+				log.setAppName(c.getString(LOG_APPLICATION_NUM));
+				log.setDestination(c.getString(LOG_DESTINATION_NUM));
+				log.setMessageSize(c.getInt(LOG_CONSUMPTION_NUM));
+				log.setTimeStamp(c.getInt(LOG_TIME_NUM));
+				logs.add(log);
+			} while (c.moveToNext());
+		}
+		return logs;
+	}
+
+	// LogFilterListener pattern
+
+	public void addLogFilterListener(LogFilterListener listener) {
+		listeners.add(LogFilterListener.class, listener);
+	}
+
+	public void removeLogFilterListener(LogFilterListener listener) {
+		listeners.remove(LogFilterListener.class, listener);
+	}
+
+	private LogFilterListener[] getLogFilterListeners() {
+		return listeners.getListeners(LogFilterListener.class);
+	}
+
+	protected void fireLogFilterChanged() {
+		for (LogFilterListener listener : getLogFilterListeners()) {
+			listener.onLogFilterChange(getLogFilters());
+		}
+	}
+
+	@Override
+	public GenericSQLiteHelper getSQLiteHelper(Context context, String name,
+			int version) {
+		return null;
+	}
+
+	// LogFilterListener pattern
+
+	public void addBlackListListener(BlackListListener listener) {
+		listeners.add(BlackListListener.class, listener);
+	}
+
+	public void removeBlackListListener(BlackListListener listener) {
+		listeners.remove(BlackListListener.class, listener);
+	}
+
+	private BlackListListener[] getBlackListListener() {
+		return listeners.getListeners(BlackListListener.class);
+	}
+
+	protected void fireBlackListItemAdded(BlackListItem item) {
+		for (BlackListListener listener : getBlackListListener()) {
+			listener.onAddBlackListItem(item);
+		}
+	}
+
+	protected void fireBlackListItemRemoved(BlackListItem item) {
+		for (BlackListListener listener : getBlackListListener()) {
+			listener.onRemoveBlackListItem(item);
+		}
+	}
+
+	@Override
+	protected boolean isValidDataBase() {
+		try {
+			open();
+			String query = "SELECT * FROM " + TABLE_LOG + " limit " + "2 "
+					+ ";";
+			Log.d("ANI", query);
+			database.rawQuery(query, null);
+
+			Log.d("ANI", "rawQuery is valid ");
+		} catch (Exception e) {
+			Log.d("ANI", "rawQuery is not valid ");
+			return false;
+
+		} finally {
+			close();
+		}
+
+		return true;
+	}
+
+}

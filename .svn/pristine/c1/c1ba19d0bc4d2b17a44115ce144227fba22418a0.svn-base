@@ -1,0 +1,66 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="63dip"
+    android:layout_marginLeft="10dip"
+    android:layout_marginRight="10dip"
+    android:padding="3dip" >
+
+    <ImageView
+        android:id="@+id/view_m_icon"
+        android:layout_width="40dip"
+        android:layout_height="40dip"
+        android:layout_centerVertical="true"
+        android:layout_marginRight="10dip"
+        android:contentDescription="@string/imagedesc_icon"
+        android:src="@color/border" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="45dip"
+        android:layout_centerVertical="true"
+        android:layout_toRightOf="@id/view_m_icon"
+        android:orientation="vertical" >
+
+        <TextView
+            android:id="@+id/view_m_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="N/A"
+            android:textSize="16dip"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/view_m_dest"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="N/A"
+            android:textSize="12dip" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="80dip"
+        android:layout_height="wrap_content"
+        android:layout_alignParentRight="true"
+        android:layout_centerVertical="true"
+        android:orientation="vertical" >
+
+        <TextView
+            android:id="@+id/view_m_down"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/down"
+            android:drawablePadding="5dip"
+            android:gravity="center_vertical"
+            android:text="N/A" />
+
+        <TextView
+            android:id="@+id/view_m_up"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableLeft="@drawable/up"
+            android:drawablePadding="5dip"
+            android:gravity="center_vertical"
+            android:text="N/A" />
+    </LinearLayout>
+
+</RelativeLayout>

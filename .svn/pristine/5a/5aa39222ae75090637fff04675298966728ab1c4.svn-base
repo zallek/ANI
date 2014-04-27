@@ -1,0 +1,199 @@
+package com.ani.ui;
+
+import java.util.ArrayList;
+
+import com.ani.R;
+import com.ani.blacklist.ScriptWriter;
+
+import android.app.Fragment;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.RadioGroup;
+import android.widget.TextView;
+
+/**
+ * Fragment related to blacklister
+ * 
+ * @author - kichan
+ */
+public class BlackListFragment extends Fragment implements OnClickListener, RadioGroup.OnCheckedChangeListener
+{
+	
+	Button addBlacklistButton;
+	EditText appliedName;
+	ListView blockedList;
+	RadioGroup radio;
+	
+	// We will use blacklister instead of scriptwriter
+	//BlackListerAbstract blacklister;
+	ScriptWriter scriptwriter;
+	
+	SharedPreferences pref;
+	SharedPreferences.Editor editor;
+	
+	boolean isIP = false;
+	
+	ArrayList<String> blockedNameList;
+
+    public BlackListFragment()
+    {
+        // Empty constructor required for fragment subclasses
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
+    {
+        View rootView = inflater.inflate(R.layout.fragment_blacklist, container, false);
+        getActivity().setTitle(R.string.blacklist_title);
+        
+        addBlacklistButton = (Button)rootView.findViewById(R.id.applyBlacklistButton);
+        addBlacklistButton.setOnClickListener(this);
+        
+        appliedName = (EditText)rootView.findViewById(R.id.appliedNameEditText);
+        
+		// load existed blacklist and construct listview
+        blockedNameList = new ArrayList<String>();
+        // TODO: DB에 저장되어있는 모든 blockedlist 가져와서 APP name or IP 저장해야됨
+        // TODO: App name인지 IP인지 식별자도 함께 저장해야됨
+        // => 이 모든걸 하기 위해서는 DB에서 가져오고 저장해야 하고, 그러니까 DB가 완성되야 여기도 완성시킬 수 있음
+        blockedNameList.add("TEST: X reflect after applying");
+        blockedNameList.add("Browser");
+        
+		BlockedListAdapter adapter = new BlockedListAdapter(getActivity(), R.layout.blacklist_item, blockedNameList);
+        blockedList = (ListView)rootView.findViewById(R.id.blockedList);
+        blockedList.setAdapter(adapter);
+        
+        radio = (RadioGroup)rootView.findViewById(R.id.blacklisterRadioGroup);
+        radio.setOnCheckedChangeListener(this);
+   
+        return rootView;
+    }
+    
+	@Override
+	public void onCreate(Bundle savedInstanceState)
+	{
+		super.onCreate(savedInstanceState);
+		//getActivity().setContentView(R.layout.fragment_blacklist);
+
+		//blacklister = new ScriptWriter(getActivity());
+		scriptwriter = new ScriptWriter(getActivity());
+		
+		pref = this.getActivity().getSharedPreferences("pref", 0);
+		editor = pref.edit();
+		
+		if(pref.getBoolean("initialization", false)==false)
+		{
+			scriptwriter.scriptHeader(getActivity());
+			editor.putBoolean("initialization", true);
+			editor.commit();
+		}
+		
+	}
+	
+	@Override
+	public void onClick(View v)
+	{
+		int id = v.getId();
+		
+		// These 4 cases will be changed to enable and disable after fully understanding about BlackListItem
+		switch(id)
+		{
+		case R.id.applyBlacklistButton:
+			
+			
+			scriptwriter.enableScript(getActivity(), appliedName.getText().toString(), isIP);
+			break;
+		}
+	}
+
+
+	@Override
+	public void onCheckedChanged(RadioGroup group, int checkedId)
+	{
+		switch(checkedId)
+		{
+		case R.id.selectApplicationName:
+			isIP = false;
+			break;
+		case R.id.selectIPAddress:
+			isIP = true;
+			break;
+		}
+		
+	}
+	
+	/**
+	 * inner class BlockListAdapter
+	 * 
+	 * construct and manage blockedList (ListView)
+	 */
+	class BlockedListAdapter extends BaseAdapter
+	{
+		Context ctx;
+		int itemLayout;
+		ArrayList<String> list;
+		
+		BlockedListAdapter(Context context, int layoutXml, ArrayList<String> arraylist)
+		{
+			ctx = context;
+			itemLayout = layoutXml;
+			list = arraylist;
+		}
+		
+		@Override
+		public int getCount()
+		{
+			return list.size();
+		}
+
+		@Override
+		public Object getItem(int position)
+		{
+			return list.get(position);
+		}
+
+		@Override
+		public long getItemId(int position)
+		{
+			return position;
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent)
+		{
+			final int pos = position;
+			
+			if(convertView == null)
+			{
+				LayoutInflater inflater = (LayoutInflater)ctx.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+				convertView = inflater.inflate(itemLayout, parent, false);
+				
+				TextView name = (TextView)convertView.findViewById(R.id.blockedItemName);
+				name.setText(list.get(pos));
+				
+				Button disableButton = (Button)convertView.findViewById(R.id.disableBlacklistButton);
+				disableButton.setOnClickListener(new View.OnClickListener() {
+					
+					@Override
+					public void onClick(View v)
+					{
+						//TODO: App, IP 에 따라 T/F 결정해서 실행하도록 해야됨
+						scriptwriter.disableScript(ctx, list.get(pos), false);
+					}
+				});	
+			}
+			
+			return convertView;
+		}
+	}
+}

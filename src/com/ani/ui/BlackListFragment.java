@@ -1,0 +1,302 @@
+package com.ani.ui;
+
+import java.util.ArrayList;
+
+import android.annotation.TargetApi;
+import android.app.Fragment;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.os.Build;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.PopupWindow;
+import android.widget.RadioGroup;
+import android.widget.RadioGroup.OnCheckedChangeListener;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import com.ani.R;
+import com.ani.blacklist.ScriptWriter;
+import com.ani.db.DbModel;
+import com.ani.db.DbModelInterface;
+import com.ani.db.entity.BlackListItem;
+import com.ani.db.object.NetworkType;
+
+/**
+ * Fragment related to blacklister
+ * 
+ * @author - kichan
+ */
+public class BlackListFragment extends Fragment implements OnClickListener {
+	View rootView;
+
+	TextView alertNoBlacklist;
+	Button callBlacklistPopupButton;
+	ListView blockedList;
+	BlockedListAdapter blockedListAdapter;
+	DbModelInterface db;
+
+	ScriptWriter scriptwriter;
+
+	SharedPreferences pref;
+	SharedPreferences.Editor editor;
+
+	boolean isIP = false;
+	boolean isPoped = false;
+
+	ArrayList<String> blockedNameList;
+
+	public BlackListFragment() {
+		// Empty constructor required for fragment subclasses
+	}
+
+	@Override
+	public View onCreateView(LayoutInflater inflater, ViewGroup container,
+			Bundle savedInstanceState) {
+		rootView = inflater.inflate(R.layout.fragment_blacklist, container,
+				false);
+
+		alertNoBlacklist = (TextView) rootView
+				.findViewById(R.id.alertNoBlacklist);
+
+		callBlacklistPopupButton = (Button) rootView
+				.findViewById(R.id.callBlacklistPopupButton);
+		callBlacklistPopupButton.setOnClickListener(this);
+
+		db = new DbModel(getActivity());
+
+		blockedList = (ListView) rootView.findViewById(R.id.blockedList);
+
+		return rootView;
+	}
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+
+		scriptwriter = new ScriptWriter(getActivity());
+
+		pref = this.getActivity().getSharedPreferences("pref", 0);
+		editor = pref.edit();
+
+		if (pref.getBoolean("initialization", false) == false) {
+			scriptwriter.scriptHeader(getActivity());
+			editor.putBoolean("initialization", true);
+			editor.commit();
+		}
+
+	}
+
+	@Override
+	public void onResume() {
+		super.onResume();
+
+		// load stored blacklist and construct listview
+		blockedNameList = new ArrayList<String>();
+		int size = 0;
+		for (BlackListItem blockedDB : db.getBlackListItems()) {
+			blockedNameList.add(blockedDB.getFilter());
+			size++;
+		}
+		blockedListAdapter = new BlockedListAdapter(getActivity(),
+				R.layout.blacklist_item, blockedNameList);
+		blockedList.setAdapter(blockedListAdapter);
+
+		// print message if there is no blacklist
+		if (size == 0)
+			alertNoBlacklist.setVisibility(View.VISIBLE);
+		else
+			alertNoBlacklist.setVisibility(View.INVISIBLE);
+	}
+
+	public void toBlacklist(BlackListItem item) {
+		NetworkType type = item.getType();
+		String name = item.getFilter();
+		String augmentedString = isIP ? "IP: " : "APP: ";
+		boolean _isIP = item.getType() == NetworkType.DESTINATION_IP;
+
+		if (scriptwriter.enableScript(getActivity(), name, _isIP) == 0) {
+			// use augmented string (APP: Browser, IP: 123.123.123.123)
+			db.addBlackListItem(new BlackListItem(type, new String(
+					augmentedString + name), true));
+			onResume();
+		}
+	}
+
+	// Push "Add Blacklist" button
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
+	@Override
+	public void onClick(View v) {
+		int id = v.getId();
+
+		// if push callblacklistbutton, then new layout is popped.
+		switch (id) {
+		case R.id.callBlacklistPopupButton:
+			LayoutInflater layoutInflater = (LayoutInflater) getActivity()
+					.getBaseContext().getSystemService(
+							getActivity().LAYOUT_INFLATER_SERVICE);
+			final View popupView = layoutInflater.inflate(
+					R.layout.blacklist_popup, null);
+			final PopupWindow popupWindow = new PopupWindow(popupView,
+					LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+
+			final RadioGroup radio = (RadioGroup) popupView
+					.findViewById(R.id.blacklisterPopupRadioGroup);
+			final EditText appliedName = (EditText) popupView
+					.findViewById(R.id.appliedNameEditText);
+			Button addBlackList = (Button) popupView
+					.findViewById(R.id.blacklistPopupAddButton);
+			Button exitPopup = (Button) popupView
+					.findViewById(R.id.blacklistPopupCancelButton);
+
+			// listener about buttons in the popup
+			radio.setOnCheckedChangeListener(new OnCheckedChangeListener() {
+				@Override
+				public void onCheckedChanged(RadioGroup group, int checkedId) {
+					switch (checkedId) {
+					case R.id.selectApplicationName:
+						isIP = false;
+						break;
+					case R.id.selectIPAddress:
+						isIP = true;
+						break;
+					}
+				}
+			});
+
+			addBlackList.setOnClickListener(new OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					NetworkType type = isIP ? NetworkType.DESTINATION_IP
+							: NetworkType.APP_NAME;
+					String name = appliedName.getText().toString();
+
+					toBlacklist(new BlackListItem(type, name, true));
+
+					/*
+					 * NetworkType type = isIP ? NetworkType.DESTINATION_IP :
+					 * NetworkType.APP_NAME; String name =
+					 * appliedName.getText().toString(); String augmentedString
+					 * = isIP ? "IP: " : "APP: ";
+					 * 
+					 * if(scriptwriter.enableScript(getActivity(), name, isIP)
+					 * == 0) { // use augmented string (APP: Browser, IP:
+					 * 123.123.123.123) db.addBlackListItem(new
+					 * BlackListItem(type,new
+					 * String(augmentedString+name),true)); onResume(); }
+					 */
+				}
+			});
+
+			exitPopup.setOnClickListener(new OnClickListener() {
+				@Override
+				public void onClick(View v) {
+					popupWindow.dismiss();
+					isPoped = false;
+					callBlacklistPopupButton.setEnabled(true);
+					rootView.setBackground(new ColorDrawable(Color.TRANSPARENT));
+				}
+			});
+
+			isPoped = true;
+			callBlacklistPopupButton.setEnabled(false);
+			rootView.setBackground(new ColorDrawable(0x77000000));
+			popupWindow.setFocusable(true);
+			popupWindow.showAtLocation(popupView, Gravity.CENTER, 0, 0);
+			break;
+		}
+	}
+
+	/**
+	 * inner class BlockListAdapter
+	 * 
+	 * construct and manage blockedList (ListView)
+	 */
+	class BlockedListAdapter extends BaseAdapter {
+		Context ctx;
+		int itemLayout;
+		ArrayList<String> list;
+
+		BlockedListAdapter(Context context, int layoutXml,
+				ArrayList<String> arraylist) {
+			ctx = context;
+			itemLayout = layoutXml;
+			list = arraylist;
+		}
+
+		@Override
+		public int getCount() {
+			return list.size();
+		}
+
+		@Override
+		public Object getItem(int position) {
+			return list.get(position);
+		}
+
+		@Override
+		public long getItemId(int position) {
+			return position;
+		}
+
+		@Override
+		public View getView(int position, View convertView, ViewGroup parent) {
+			final int pos = position;
+
+			if (convertView == null) {
+				LayoutInflater inflater = (LayoutInflater) ctx
+						.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+				convertView = inflater.inflate(itemLayout, parent, false);
+
+				TextView name = (TextView) convertView
+						.findViewById(R.id.blockedItemName);
+				name.setText(list.get(pos));
+
+				final Button disableButton = (Button) convertView
+						.findViewById(R.id.disableBlacklistButton);
+				disableButton.setOnClickListener(new View.OnClickListener() {
+
+					// Push "Disable" button
+					@Override
+					public void onClick(View v) {
+						if (isPoped) // disable if adding new list
+							return;
+
+						if (list.get(pos).substring(0, 3).equals("APP")) // Application
+						{
+							db.removeBlackListItem(new BlackListItem(
+									NetworkType.APP_NAME, list.get(pos), true));
+							onResume();
+							scriptwriter.disableScript(ctx, list.get(pos)
+									.substring(5), false);
+						} else if (list.get(pos).substring(0, 2).equals("IP")) // IP
+																				// address
+						{
+							db.removeBlackListItem(new BlackListItem(
+									NetworkType.DESTINATION_IP, list.get(pos),
+									true));
+							onResume();
+							scriptwriter.disableScript(ctx, list.get(pos)
+									.substring(4), true);
+						} else {
+							Toast.makeText(ctx, "ERROR", Toast.LENGTH_SHORT)
+									.show();
+						}
+					}
+				});
+			}
+			return convertView;
+		}
+	}
+}

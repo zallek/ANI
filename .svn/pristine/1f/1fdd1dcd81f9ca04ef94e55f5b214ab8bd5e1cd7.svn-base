@@ -1,0 +1,247 @@
+package com.ani.log;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.os.AsyncTask;
+import android.os.IBinder;
+import android.util.Log;
+
+import com.ani.ANIApplication;
+import com.ani.R;
+import com.ani.db.DbModel;
+import com.ani.db.entity.LogFilter;
+import com.ani.db.entity.NetLog;
+import com.ani.utils.BinaryUtils;
+import com.ani.utils.ShellCommand;
+
+/**
+ * Persistent service which logs network according to LogFilters Intent receiver
+ * to : - start/resume logging - pause logging - kill service
+ * 
+ * @author Nicolas
+ * 
+ */
+public class Logger extends Service {
+	private static String script = null;
+	private static final String regex = "___CMD_TO_EXEC___";
+
+	List<LogFilter> logFilters = new ArrayList<LogFilter>();
+	LogExtractor logger = null;
+
+	private class LogExtractor extends AsyncTask<Void, Void, Void> {
+		ShellCommand cmd = null;
+
+		@Override
+		protected Void doInBackground(Void... vds) {
+			DbModel db = ANIApplication.getANIDataBaseInterface();
+
+			// I erase "su -c"
+			cmd = new ShellCommand(new String[] {
+					"su",
+					"-c",
+					getApplicationContext().getFilesDir().getAbsolutePath()
+							+ File.separator + "nflog 0" }, "NFLOG");
+			// cmd = new ShellCommand(new String[]
+			// {getApplicationContext().getFilesDir().getAbsolutePath() +
+			// File.separator + "nflog 0" }, "NFLOG");
+			cmd.start(false);
+
+			while (!isCancelled()) {
+
+				String line = cmd.readStdoutBlocking();
+				if (line == null || line.equals(""))
+					continue;
+
+				db.addLog(parseLog(line));
+
+			}
+			return null;
+		}
+
+		public void stop() {
+			Log.d("Logger", "Stoping logger");
+
+			if (cmd != null) {
+				cmd.finish();
+				cmd = null;
+			}
+			logger.cancel(true);
+
+		}
+
+		private NetLog parseLog(String line) {
+			Log.d("Logger - Parselog", line);
+			NetLog log = new NetLog();
+			String src = line.split("SRC=")[1].split(" ")[0];
+			String dst = line.split("DST=")[1].split(" ")[0];
+			int len = Integer.parseInt(line.split("LEN=")[1].split(" ")[0]);
+			String appName = null;
+			if (line.split("UID=").length > 1) {
+
+				appName = getPackageManager().getNameForUid(
+						Integer.parseInt(line.split("UID=")[1].split(" ")[0]));
+			}
+
+			if (appName == null)
+				appName = "root";
+
+			log.setDestination(dst);
+			log.setMessageSize(len);
+			log.setAppName(appName);
+			return log;
+		}
+
+	};
+
+	public Logger() {
+		// ANIUtils.getDatabase().addLogFilterListener(new LogFilterListener(){
+		//
+		// @Override
+		// public void onLogFilterChange(List<LogFilter> newLogFilterList) {
+		// logFilters = newLogFilterList;
+		// //TODO
+		// Toast.makeText(ANIApplication.getApplicationInstance(),
+		// "Modified filters",Toast.LENGTH_LONG).show();
+		// }
+		//
+		// });
+
+	}
+
+	@Override
+	public IBinder onBind(Intent arg0) {
+
+		return null;
+	}
+
+	@Override
+	public void onDestroy() {
+		stop_logging();
+	}
+
+	@Override
+	public void onCreate() {
+		super.onCreate();
+		Log.d("ANI_Service", "Starting");
+		if (script == null) {
+			script = new java.util.Scanner(getResources().openRawResource(
+					R.raw.setup_logging)).useDelimiter("\\A").next();
+		}
+		stop_logging();
+		BinaryUtils
+				.installBinary(getApplicationContext(), "nflog", R.raw.nflog);
+
+	}
+
+	public void stop_logging() {
+		ShellCommand cmd = new ShellCommand(new String[] { "su", "-c",
+				"" + script.replaceFirst(regex, "stop") + "" }, "Logging Stop");
+		cmd.start(true);
+		if (logger != null) {
+			logger.stop();
+			logger = null;
+		}
+	}
+
+	public void start_logging() {
+		if (get_status())
+			return;
+
+		ShellCommand cmd = new ShellCommand(new String[] { "su", "-c",
+				"" + script.replaceAll(regex, "start") + "" }, "Logging Start");
+		cmd.start(true);
+
+		logger = new LogExtractor();
+		logger.execute();
+
+	}
+
+	public Boolean get_status() {
+		ShellCommand cmd = new ShellCommand(new String[] { "su", "-c",
+				"" + script.replaceAll(regex, "status") + "" },
+				"Logging status");
+		cmd.start(false);
+		String ret = cmd.readStdoutBlocking();
+
+		return (ret != null && ret.equals("ON")) ? true : false;
+	}
+
+	@Override
+	public int onStartCommand(Intent intent, int flags, int startId) {
+		Log.e("ANI_Service", "Starting ");
+		if (intent != null
+				&& intent.getAction().equals(LoggerConstants.ACTION_COMMAND)) {
+			final int command = intent.getIntExtra(LoggerConstants.COMMAND, -1);
+			switch (command) {
+			case LoggerConstants.COMMAND_START:
+				start_logging();
+				break;
+
+			case LoggerConstants.COMMAND_STOP:
+				stop_logging();
+				break;
+
+			case LoggerConstants.COMMAND_LOGFILTERS_ADDED:
+				final LogFilter newLogFilter = intent
+						.getParcelableExtra("LOG_FILTER");
+				break;
+
+			case LoggerConstants.COMMAND_LOGFILTERS_REMOVED:
+				final LogFilter oldLogFilter = intent
+						.getParcelableExtra("LOG_FILTER");
+				break;
+			}
+		}
+		return Service.START_NOT_STICKY;
+	}
+
+	// ** BROADCAST RECEIVER **//
+
+	private BroadcastReceiver commandReceiver = new BroadcastReceiver() {
+
+		@Override
+		public void onReceive(Context context, Intent intent) {
+			Log.e("ANI_Service", "Starting ");
+			if (intent != null
+					&& intent.getAction()
+							.equals(LoggerConstants.ACTION_COMMAND)) {
+				ShellCommand cmd = null;
+				final int command = intent.getIntExtra(LoggerConstants.COMMAND,
+						-1);
+				switch (command) {
+				case LoggerConstants.COMMAND_START:
+					cmd = new ShellCommand(new String[] { "su", "-c",
+							"'" + script.replaceAll(regex, "start") + "'" },
+							"Logging Start");
+					cmd.start(true);
+
+					break;
+
+				case LoggerConstants.COMMAND_STOP:
+					cmd = new ShellCommand(new String[] { "su", "-c",
+							"'" + script.replaceAll(regex, "stop") + "'" },
+							"Logging Start");
+					cmd.start(true);
+					break;
+
+				case LoggerConstants.COMMAND_LOGFILTERS_ADDED:
+					final LogFilter newLogFilter = intent
+							.getParcelableExtra("LOG_FILTER");
+					break;
+
+				case LoggerConstants.COMMAND_LOGFILTERS_REMOVED:
+					final LogFilter oldLogFilter = intent
+							.getParcelableExtra("LOG_FILTER");
+					break;
+				}
+			}
+		}
+	};
+
+}

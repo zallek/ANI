@@ -1,0 +1,56 @@
+#!/bin/sh
+
+function get_status 
+{
+    nb_rules=$($IPTABLES -L | grep $log_prefix | wc -l)
+
+    if [ $nb_rules -gt 0 ]
+    then
+        echo "ON"
+    else
+        echo "OFF"
+    fi
+
+}
+
+function toggle_logging
+{
+
+    $IPTABLES $action OUTPUT $insert_pos ! -o lo -j NFLOG --nflog-prefix $log_prefix
+    $IPTABLES $action INPUT $insert_pos ! -i lo -j NFLOG --nflog-prefix $log_prefix
+
+}
+
+
+##
+## MAIN
+##
+
+export PATH="/data/local/bin:/system/xbin:$PATH"
+IPTABLES=$(which iptables)
+cmd="___CMD_TO_EXEC___"
+
+log_prefix='{{ANI}}'
+
+if [ "$cmd" == "stop" ]
+then
+    insert_pos=''
+    action='-D'
+    toggle_logging
+    PID=$(ps | busybox_g1 grep nflog | busybox_g1 awk '{print $2}')
+    kill $PID
+
+elif [ "$cmd" == "start" ]
+then
+        insert_pos='1'
+        action='-I'
+        toggle_logging
+
+elif [ "$cmd" == "status" ]
+then
+    get_status
+fi
+
+
+
+

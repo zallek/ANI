@@ -1,0 +1,84 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingBottom="@dimen/activity_vertical_margin"
+    android:paddingLeft="@dimen/activity_horizontal_margin"
+    android:paddingRight="@dimen/activity_horizontal_margin"
+    android:paddingTop="@dimen/activity_vertical_margin"
+    tools:context=".BlackListerActivity" >
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_marginTop="18dp"
+        android:text="Application applied firewall (case-sensitive)" />
+
+    <EditText
+        android:id="@+id/applicationName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/textView2"
+        android:ems="10"
+        android:text="Browser" >
+
+        <requestFocus />
+    </EditText>
+
+    <TextView
+        android:id="@+id/TextView01"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:text="Ip address blocked by Firewall" />
+
+    <EditText
+        android:id="@+id/ipAddress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/TextView01"
+        android:layout_alignParentRight="true"
+        android:layout_below="@+id/TextView01"
+        android:ems="10"
+        android:text="143.248.139.13" />
+
+    <Button
+        android:id="@+id/enableApp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/applicationName"
+        android:layout_below="@+id/applicationName"
+        android:text="Enable" />
+
+    <Button
+        android:id="@+id/enableIP"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignLeft="@+id/ipAddress"
+        android:layout_below="@+id/ipAddress"
+        android:text="Enable" />
+
+    <Button
+        android:id="@+id/disableIP"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/enableIP"
+        android:layout_alignBottom="@+id/enableIP"
+        android:layout_alignRight="@+id/ipAddress"
+        android:text="Disable" />
+
+    <Button
+        android:id="@+id/disableApp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignBaseline="@+id/enableApp"
+        android:layout_alignBottom="@+id/enableApp"
+        android:layout_alignRight="@+id/applicationName"
+        android:text="Disable" />
+
+</RelativeLayout>

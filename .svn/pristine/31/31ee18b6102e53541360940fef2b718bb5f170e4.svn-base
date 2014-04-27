@@ -1,0 +1,104 @@
+package com.ani.ui;
+
+import com.ani.R;
+import com.ani.blacklist.ScriptWriter;
+
+import android.app.Fragment;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.EditText;
+
+/**
+ * Fragment that appears in the "content_frame", shows a planet
+ */
+public class BlackListFragment extends Fragment implements OnClickListener
+{
+    EditText applicationName;
+	EditText ipAddress;
+	
+	Button enableAppButton, disableAppButton;
+	Button enableIPButton, disableIPButton;
+	
+	// We will use blacklister instead of scriptwriter
+	//BlackListerAbstract blacklister;
+	ScriptWriter scriptwriter;
+	
+	SharedPreferences pref;
+	SharedPreferences.Editor editor;
+
+    public BlackListFragment()
+    {
+        // Empty constructor required for fragment subclasses
+    }
+
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
+    {
+        View rootView = inflater.inflate(R.layout.fragment_blacklist, container, false);
+        getActivity().setTitle(R.string.blacklist_title);
+        
+        enableAppButton = (Button)rootView.findViewById(R.id.enableApp);
+		disableAppButton = (Button)rootView.findViewById(R.id.disableApp);
+		enableIPButton = (Button)rootView.findViewById(R.id.enableIP);
+		disableIPButton = (Button)rootView.findViewById(R.id.disableIP);
+		applicationName = (EditText)rootView.findViewById(R.id.applicationName);
+		ipAddress = (EditText)rootView.findViewById(R.id.ipAddress);
+		
+		enableAppButton.setOnClickListener(this);
+		disableAppButton.setOnClickListener(this);
+		enableIPButton.setOnClickListener(this);
+		disableIPButton.setOnClickListener(this);
+   
+        return rootView;
+    }
+    
+	@Override
+	public void onCreate(Bundle savedInstanceState)
+	{
+		super.onCreate(savedInstanceState);
+		//getActivity().setContentView(R.layout.fragment_blacklist);
+
+		//blacklister = new ScriptWriter(getActivity());
+		scriptwriter = new ScriptWriter(getActivity());
+		
+		pref = this.getActivity().getSharedPreferences("pref", 0);
+		editor = pref.edit();
+		
+		if(pref.getBoolean("initialization", false)==false)
+		{
+			scriptwriter.scriptHeader(getActivity());
+			editor.putBoolean("initialization", true);
+			editor.commit();
+		}
+		
+	}
+	
+	@Override
+	public void onClick(View v)
+	{
+		int id = v.getId();
+		
+		// These 4 cases will be changed to enable and disable after fully understanding about BlackListItem
+		switch(id)
+		{
+		case R.id.enableApp:
+			scriptwriter.enableScript(getActivity(), applicationName.getText().toString(),false);
+			break;
+		case R.id.disableApp:
+			scriptwriter.disableScript(getActivity(), applicationName.getText().toString(),false);
+			break;
+		case R.id.enableIP:
+			scriptwriter.enableScript(getActivity(), ipAddress.getText().toString(),true);
+			break;
+		case R.id.disableIP:
+			scriptwriter.disableScript(getActivity(), ipAddress.getText().toString(),true);
+			break;
+		}
+	}    
+}

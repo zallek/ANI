@@ -1,0 +1,70 @@
+package com.ani;
+
+import java.util.List;
+
+import android.app.Application;
+import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.util.Log;
+
+import com.ani.db.DbModel;
+
+/***
+ * ANI Application
+ * 
+ */
+
+public class ANIApplication extends Application {
+
+	// single instance of the application
+	static private ANIApplication ANI_APPINSTANCE = null;
+	// single instance of the database
+	protected DbModel databaseinterface;
+	public static List<ApplicationInfo> packages;
+
+	/**
+	 * constructor
+	 */
+	public ANIApplication() {
+		super();
+		ANI_APPINSTANCE = this;
+	}
+
+	@Override
+	public void onCreate() {
+		super.onCreate();
+		databaseinterface = new DbModel(this);
+		final Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
+		mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+
+		PackageManager packageManager = getPackageManager();
+		packages = packageManager
+				.getInstalledApplications(PackageManager.GET_META_DATA);
+	}
+
+	/**
+	 * get the unique instance of application
+	 */
+	static final public ANIApplication getApplicationInstance() {
+		if (ANI_APPINSTANCE == null) {
+			Log.d("ANI", "Not Existing Instance");
+		}
+		return ANI_APPINSTANCE;
+	}
+
+	/**
+	 * get the unique instance of data base
+	 */
+	static final public DbModel getANIDataBaseInterface() {
+		return ANI_APPINSTANCE.getDataBaseInterface();
+	}
+
+	public DbModel getDataBaseInterface() {
+		if (databaseinterface == null) {
+			Log.d("ANI", "Database inexistante");
+		}
+		return databaseinterface;
+	}
+
+}

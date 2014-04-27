@@ -1,0 +1,168 @@
+package com.ani.ui.view;
+
+import android.content.Context;
+import android.graphics.drawable.Drawable;
+import android.util.AttributeSet;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.Switch;
+import android.widget.TextView;
+
+import com.ani.R;
+
+public class SettingItemView extends LinearLayout {
+
+	private TextView name;
+	private TextView categName;
+	private TextView imageName;
+	private ImageView icon;
+	private Switch switchi;
+
+	public static final int TYPE_CATEG = 0;
+	public static final int TYPE_CATEG_SWITCH = 1;
+	public static final int TYPE_IMAGE = 2;
+	public static final int TYPE_NORMAL = 3;
+	public static final int TYPE_NORMAL_SWITCH = 4;
+	private int type = TYPE_NORMAL;
+
+	public SettingItemView(Context context) {
+		this(context, null);
+
+	}
+
+	public void setItemView(int type, String name) {
+		setItemView(type, name, null);
+	}
+
+	public void setItemView(int type, String name, Drawable icon) {
+		this.type = type;
+		setCategName(name);
+		setName(name);
+		setImageName(name);
+		setIcon(icon);
+		adaptUI();
+	}
+
+	public SettingItemView(Context context, AttributeSet attrs) {
+		super(context, attrs);
+		inflate();
+		initWidgets();
+	}
+
+	protected void inflate() {
+		LayoutInflater inflater = (LayoutInflater) getContext()
+				.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+		inflater.inflate(R.layout.view_setting_item, this);
+	}
+
+	protected void initWidgets() {
+		name = (TextView) findViewById(R.id.view_settings_name);
+		categName = (TextView) findViewById(R.id.view_settings_categ_name);
+		imageName = (TextView) findViewById(R.id.view_settings_image_name);
+		icon = (ImageView) findViewById(R.id.view_settings_image);
+		switchi = (Switch) findViewById(R.id.view_settings_switch);
+		switchi.setClickable(false);
+	}
+
+	public void adaptUI() {
+		switch (type) {
+		case TYPE_CATEG:
+			switchi.setVisibility(View.GONE);
+			icon.setVisibility(View.GONE);
+			imageName.setVisibility(View.GONE);
+			name.setVisibility(View.GONE);
+			categName.setVisibility(View.VISIBLE);
+			break;
+		case TYPE_CATEG_SWITCH:
+			switchi.setVisibility(View.VISIBLE);
+			icon.setVisibility(View.GONE);
+			imageName.setVisibility(View.GONE);
+			name.setVisibility(View.GONE);
+			categName.setVisibility(View.VISIBLE);
+			break;
+		case TYPE_IMAGE:
+			switchi.setVisibility(View.VISIBLE);
+			icon.setVisibility(View.VISIBLE);
+			imageName.setVisibility(View.VISIBLE);
+			name.setVisibility(View.GONE);
+			categName.setVisibility(View.GONE);
+			break;
+		case TYPE_NORMAL:
+			switchi.setVisibility(View.GONE);
+			icon.setVisibility(View.GONE);
+			imageName.setVisibility(View.GONE);
+			name.setVisibility(View.VISIBLE);
+			categName.setVisibility(View.GONE);
+			break;
+		case TYPE_NORMAL_SWITCH:
+			switchi.setVisibility(View.VISIBLE);
+			icon.setVisibility(View.GONE);
+			imageName.setVisibility(View.GONE);
+			name.setVisibility(View.VISIBLE);
+			categName.setVisibility(View.GONE);
+			break;
+		default:
+			switchi.setVisibility(View.VISIBLE);
+			icon.setVisibility(View.GONE);
+			imageName.setVisibility(View.GONE);
+			name.setVisibility(View.VISIBLE);
+			categName.setVisibility(View.GONE);
+			type = TYPE_NORMAL;
+			break;
+		}
+	}
+
+	public void setName(String name) {
+		if (this.name != null)
+			this.name.setText(name);
+	}
+
+	public void setCategName(String categName) {
+		if (this.categName != null)
+			this.categName.setText(categName);
+	}
+
+	public void setImageName(String imageName) {
+		if (this.imageName != null)
+			this.imageName.setText(imageName);
+	}
+
+	public void setIcon(Drawable icon) {
+		if (icon != null && this.icon != null) {
+			this.icon.setImageDrawable(icon);
+		}
+	}
+
+	public boolean isSwitchCheck() {
+		if (switchi != null)
+			return switchi.isChecked();
+		return false;
+	}
+
+	public void setSwitch(boolean checked) {
+		if (switchi != null)
+			this.switchi.setChecked(checked);
+	}
+
+	public int getType() {
+		return type;
+	}
+
+	public void setType(int type) {
+		this.type = type;
+		if (name != null) {
+			adaptUI();
+		}
+	}
+
+	public boolean getSwitchi() {
+		return switchi.isChecked();
+	}
+
+	public String getName() {
+		return (String) name.getText();
+	}
+
+}

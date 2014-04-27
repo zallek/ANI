@@ -1,0 +1,63 @@
+package com.ani;
+
+
+import android.app.Application;
+import android.util.Log;
+
+import com.ani.db.DbModel;
+
+
+/***
+ * ANI Application
+ * @author Bertrand
+ *
+ */
+
+public class ANIApplication  extends Application{
+
+	public static final String USER_LOGIN = "userlogin";
+	public static final String USER_PASSWORD = "userpassword";
+	// single instance of the application
+	static private ANIApplication ANI_APPINSTANCE = null;
+	// single instance of the database
+	protected DbModel databaseinterface;
+
+
+	/**
+	 * constructor
+	 */
+	public ANIApplication() {
+		super();
+		ANI_APPINSTANCE = this;
+	}
+
+	@Override
+	public void onCreate() { 
+		super.onCreate();
+		databaseinterface = new DbModel(this);
+	}
+
+	/**
+	 * get the unique instance of application
+	 */
+	static final public ANIApplication getApplicationInstance() {
+		if(ANI_APPINSTANCE == null){
+		Log.d("ANI", "Not Existing Instance");}
+		return ANI_APPINSTANCE;
+	}
+
+	/**
+	 * get the unique instance of data base
+	 */
+	static final public DbModel getANIDataBaseInterface() {
+		return ANI_APPINSTANCE.getDataBaseInterface();
+	}
+
+	public DbModel getDataBaseInterface(){
+		if(databaseinterface == null){
+		Log.d("ANI", "Database inexistante");}
+		return databaseinterface;
+	}
+
+
+}

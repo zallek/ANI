@@ -1,0 +1,127 @@
+package com.ani.task;
+
+import java.lang.ref.SoftReference;
+import java.util.ArrayList;
+import java.util.List;
+
+import android.os.AsyncTask;
+
+import com.ani.ANIApplication;
+import com.ani.db.object.Traffic;
+import com.ani.ui.LiveConsoFragment;
+import com.ani.ui.LogsFragment;
+import com.ani.ui.view.ConsumptionItem;
+import com.ani.ui.view.adapter.ConsumptionMItemAdapter;
+import com.ani.ui.view.adapter.GenericItemAdapter;
+
+public class LiveConsoTask extends
+		AsyncTask<LogsFragment, Void, List<ConsumptionItem>> {
+
+	private SoftReference<LiveConsoFragment> fragment;
+	private List<ConsumptionItem> items = new ArrayList<ConsumptionItem>();
+
+	public LiveConsoTask(LiveConsoFragment fragment) {
+		this.fragment = new SoftReference<LiveConsoFragment>(fragment);
+	}
+
+	@Override
+	protected void onPreExecute() {
+		//
+	}
+
+	@Override
+	protected List<ConsumptionItem> doInBackground(LogsFragment... params) {
+		if (fragment.get() != null) {// Trying if we are in the fragment
+			// Launch database query to retrieve the datas
+			List<Traffic> list = ANIApplication.getANIDataBaseInterface()
+					.getTrafics();
+			// After query reorganization of datas
+			items = getItemsFromLogs(list);
+		}
+		return items;
+	}
+
+	/**
+	 * This method search the title of apps, merge logs in order to get donwload
+	 * AND upload and filter the result for the search filter (Cannot be done in
+	 * the database because we need the final name of apps).
+	 * 
+	 * @param logs
+	 *            : list from the database
+	 * @return Final list that can be displayed
+	 */
+	private List<ConsumptionItem> getItemsFromLogs(List<Traffic> traffics) {
+		List<ConsumptionItem> items = new ArrayList<ConsumptionItem>();
+
+		/***
+		 * TEST !//This is just testing values, don't worry about it
+		 */
+		if (traffics == null) {
+			traffics = new ArrayList<Traffic>();
+		}
+		traffics.add(new Traffic("com.adobe.air", 14, 2));
+		traffics.add(new Traffic("blob", 1, 13));
+		/***
+		 * END TEST
+		 */
+
+		if (traffics != null && traffics.size() > 0) {
+			for (Traffic tf : traffics) {
+				ConsumptionItem item = new ConsumptionItem(
+						tf.getCurrentUploadTraffic(),
+						tf.getCurrentDownloadTraffic(), 0, null, "",
+						tf.getAppName());
+				item = retrieveInfo(item);
+				items.add(item);
+			}
+		}
+		return items;
+	}
+
+	/**
+	 * Search for icon and labeled name for an item when possible (Compare with
+	 * the package name and the UID)
+	 * 
+	 * @param item
+	 *            : The item to modify
+	 * @return Item with good icon and label when possible
+	 */
+	private ConsumptionItem retrieveInfo(ConsumptionItem item) {
+		for (int i = 0; i < ANIApplication.packages.size(); i++) {
+			// Compare name with UID and package name
+			if (item.getName() == null)
+				continue;
+			if ((item.getName().equals(ANIApplication.packages.get(i).uid) || item
+					.getName().equals(
+							ANIApplication.packages.get(i).packageName))
+					&& fragment.get() != null) {
+				// If match, change the name and the icon
+				item.setName((String) ((ANIApplication.packages.get(i) != null) ? fragment
+						.get().getActivity().getPackageManager()
+						.getApplicationLabel(ANIApplication.packages.get(i))
+						: "Unknown App"));
+				item.setIcon(fragment.get().getActivity().getPackageManager()
+						.getApplicationIcon(ANIApplication.packages.get(i)));
+				// We don't need to continue the loop
+				break;
+			}
+		}
+		return item;
+	}
+
+	@Override
+	protected void onPostExecute(List<ConsumptionItem> result) {
+		// If the fragment is alive
+		GenericItemAdapter<ConsumptionItem> adapter;
+		if (fragment.get() != null) {
+			adapter = new ConsumptionMItemAdapter(fragment.get().getActivity(),
+					new ArrayList<ConsumptionItem>());
+
+			// Push the new list to the adapter
+			adapter.clear();
+			adapter.addAll(items);
+			fragment.get().getListConso().setAdapter(adapter);
+		}
+	}
+
+}

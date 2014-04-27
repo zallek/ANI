@@ -1,0 +1,97 @@
+package com.ani.ui;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import com.ani.R;
+import com.ani.task.LiveConsoTask;
+
+import android.app.Fragment;
+import android.os.Bundle;
+import android.os.Handler;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ListView;
+
+/**
+ * Fragment that appears in the "content_frame", shows a planet
+ */
+public class LiveConsoFragment extends Fragment {
+
+    private final int LIST_REFRESH_TIMER = 1000;
+    private ListView listConso;
+
+    public LiveConsoFragment() {
+	// Empty constructor required for fragment subclasses
+    }
+
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+	View rootView = inflater.inflate(R.layout.fragment_liveconso, container, false);
+
+	// Retrieving views
+	listConso = (ListView) rootView.findViewById(R.id.conso_listview);
+	
+	
+	return rootView;
+    }
+
+    @Override
+    public void onResume()
+    {
+	startAutoRefresh();
+	super.onResume();
+    }
+
+    @Override
+    public void onStop()
+    {
+	stopAutoRefresh();
+	super.onStop();
+    }
+
+
+
+    Handler timerHandler = new Handler();
+    Runnable timerRunnable = new Runnable() {
+        @Override
+        public void run() {
+            refreshList();
+            timerHandler.postDelayed(this, LIST_REFRESH_TIMER);
+        }
+    };
+    private void startAutoRefresh() {
+	 timerHandler.postDelayed(timerRunnable, 0);
+    }
+    private void stopAutoRefresh() {
+	timerHandler.removeCallbacks(timerRunnable);
+    }
+    
+    /**
+     * Reload datas for the list and update it
+     */
+    private void refreshList() {
+	// Initialize variables to instantiate our own Executor for the thread
+	// (The default executor seemed to block)
+	int corePoolSize = 60;
+	int maximumPoolSize = 80;
+	int keepAliveTime = 10;
+	// Instantiate queue
+	BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(
+		maximumPoolSize);
+	// Creating executor
+	Executor threadPoolExecutor = new ThreadPoolExecutor(corePoolSize,
+		maximumPoolSize, keepAliveTime, TimeUnit.SECONDS, workQueue);
+	// Execute task
+	new LiveConsoTask(this).executeOnExecutor(threadPoolExecutor);
+    }
+    
+    
+    public ListView getListConso() {
+	return listConso;
+    }
+}

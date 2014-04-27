@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="border">#CCCCCC</color>
+    <color name="categ">#AAAAAA</color>
+	<color name="transparent">#55000000</color>
+	<color name="grey">#66EEEEEE</color>
+	<color name="blue_click">#3358D3F7</color>
+</resources>

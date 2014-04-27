@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Android Network Inspector</string>
+
+    <string-array name="menu_titles">
+        <item>Data usage</item>
+        <item>Charts</item>
+        <item>Logs</item>
+        <item>BlackList</item>
+        <item>Settings</item>
+    </string-array>
+
+    <string name="datausage_title">Data usage</string>
+    <string name="charts_title">Charts</string>
+    <string name="logs_title">Logs</string>
+    <string name="blacklist_title">BlackList</string>
+    <string name="settings_title">Settings</string>
+    <string name="drawer_open">Open navigation drawer</string>
+    <string name="drawer_close">Close navigation drawer</string>
+    <string name="action_websearch">Web search</string>
+    <string name="app_not_available">Sorry, there\'s no web browser available</string>
+    <string name="imagedesc_icon">Application icon</string>
+    <string name="ok">OK</string>
+    <string name="add">Add</string>
+    <string name="cancel">Cancel</string>
+    <!-- Setting -->
+    <string name="erase_logs">This action isn\'t reversible. Are you sure to continue ?</string>
+    <!-- fragment logs -->
+    <string name="search">Search</string>
+    <string name="from">From</string>
+    <string name="to">To</string>
+    <string name="starting_time">Start time</string>
+    <string name="ending_time">End time</string>
+
+</resources>
